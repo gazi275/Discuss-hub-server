@@ -30,6 +30,7 @@ async function run() {
     const userCollection = client.db("PostDB").collection("user");
     const postCollection = client.db("PostDB").collection("posts");
     const commentCollection = client.db("PostDB").collection("comment");
+    const announcementsCollection = client.db("PostDB").collection("announcements");
 
     app.post("/posts", async (req, res) => {
       const { title, email, name, upvote, image, time, description, downvote, tag } = req.body;
@@ -167,6 +168,14 @@ async function run() {
         _id: new ObjectId(id),
       };
       const result = await userCollection.deleteOne(query);
+      console.log(result);
+      res.send(result);
+    });
+
+    app.post("/announcements", async (req, res) => {
+      const announcements = req.body;
+      //   console.log(user);
+      const result = await announcementsCollection.insertOne(announcements);
       console.log(result);
       res.send(result);
     });
