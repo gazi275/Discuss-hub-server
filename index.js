@@ -27,28 +27,83 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
-
+    const userCollection = client.db("PostDB").collection("user");
     const postCollection = client.db("PostDB").collection("posts");
     const commentCollection = client.db("PostDB").collection("comment");
 
     app.post("/posts", async (req, res) => {
-      const posts = req.body;
-      console.log(posts);
-      const result = await postCollection.insertOne(posts);
+      const { title, email, name, upvote, image, time, description, downvote, tag } = req.body;
+
+      console.log(posts)
+      const newPost = {
+        title,
+        email,
+        name,
+        image,
+        description,
+        tag,
+        upvote: upvote || 0,
+        downvote: downvote || 0,
+        time
+      }
+      const result = await postCollection.insertOne(newPost);
 
       res.send(result);
     });
+
+    // update 
+    app.put('/posts', async (req, res) => {
+      try {
+        const upvote = req.query.upvote
+        const downvote = req.query.downvote
+        console.log(upvote, downvote);
+        if (upvote) {
+          const updatedPost = await postCollection.updateOne(
+            { _id: new ObjectId(upvote) },
+            { $inc: { upvote: 1 } }
+            // { $inc: { upvote: { $toInt: '$likes' } } }
+          )
+
+          res.json({ success: true, updatedPost });
+        }
+        else if (downvote) {
+          const updatedPost = await postCollection.aggregate([
+            {
+              $match: {
+                _id: new ObjectId(downvote), // Assuming you're using ObjectId for post IDs
+              },
+            },
+            {
+              $set: {
+                downvote: {
+                  $add: [
+                    { $toInt: '$downvote' }, // Convert likes to integer
+                    1,
+                  ],
+                },
+              },
+            },
+          ])
+
+          res.json({ success: true, updatedPost });
+        }
+
+      } catch (error) {
+        res.status(400).json({ error: error });
+      }
+    })
+
 
     app.get("/post", async (req, res) => {
       try {
         const querySearch = req.query.search
         const regex = new RegExp(querySearch, 'i');
         console.log(querySearch);
-        if (querySearch && querySearch.length>0) {
-          const result = await postCollection.find({ tag: regex }).sort({time:1}).toArray()
+        if (querySearch && querySearch.length > 0) {
+          const result = await postCollection.find({ tag: regex }).sort({ time: 1 }).toArray()
           res.send(result)
         } else {
-          const result = await postCollection.find().sort({time:1}).toArray();
+          const result = await postCollection.find().sort({ time: 1 }).toArray();
           res.send(result);
         }
 
@@ -56,6 +111,55 @@ async function run() {
         res.status(400).json({ message: error })
       }
     });
+
+    // get by user
+
+    app.get ("/postByUser",async (req, res)=>{
+      const {email} = req.query
+      const result = await postCollection.find({email:email}).toArray()
+
+      res.send(result)
+    })
+
+
+    app.post("/users", async (req, res) => {
+      const { name, email } = req.body;
+      //   console.log(user);
+      const isExist = await userCollection.findOne({ email: email })
+      if (isExist) {
+        res.send('emailExists')
+      } else {
+        const newUser = {
+          name,
+          email,
+          isAdmin: false,
+          isMembarShip: false
+        }
+        const result = await userCollection.insertOne(newUser);
+        console.log(result);
+        res.send(result);
+      }
+    });
+
+    // get ALL and one
+    app.get("/users", async (req, res) => {
+
+      const { email } = req.query
+
+      if (email) {
+        const result = await userCollection.findOne({ email: email });
+        console.log(result);
+        res.send(result);
+      } else {
+        const result = await userCollection.find({}).toArray();
+        console.log(result);
+        res.send(result);
+
+      }
+
+
+    });
+
 
 
 
